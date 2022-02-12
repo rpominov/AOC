@@ -10,8 +10,9 @@
     "in-source": true
   },
   "suffix": ".bs.js",
-  "bs-dependencies": [
-  ],
+
+  "bs-dependencies": ["@ryyppy/rescript-promise"],
+
   "warnings": {
     "error" : "+101"
   },
