@@ -20,7 +20,7 @@ let getInput: (string, string, string => unit) => unit = %raw(`
 
 
     https.get("https://adventofcode.com/" + year + "/day/" + day + "/input", 
-      {headers: {cookie: "session=53616c7465645f5f19131ccca4e14b4cd38cca32c97d1b1f6e7810d2a5f7cd35a71159834b63eeddae42a75d7f1260c6"}}, 
+      {headers: {cookie: "session=__SESSION__"}}, 
       function(res) {
         if (res.statusCode !== 200) {
           console.error("Can't load input. Status code:", res.statusCode);
