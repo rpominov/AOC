@@ -1,0 +1,55 @@
+{
+  "name": "rescript-project-template",
+  "version": "0.0.1",
+  "description": "Rescrip project template",
+  "main": "TODO.js",
+  "scripts": {
+    "build": "rescript",
+    "clean": "rescript clean",
+    "start": "rescript build -w",
+    "test": "jest"
+  },
+  "keywords": [
+    "rescript"
+  ],
+  "contributors": [
+    "Roman Pominov"
+  ],
+  "homepage": "https://github.com/rpominov/rescript-project-template#readme",
+  "bugs": "https://github.com/rpominov/rescript-project-template/issues",
+  "repository": "github:rpominov/rescript-project-template",
+  "license": "MIT",
+  "dependencies": {
+    "rescript": "^10.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.3.1"
+  },
+  "jest": {
+    "reporters": [
+      "default",
+      "github-actions"
+    ],
+    "testLocationInResults": true,
+    "testMatch": [
+      "**/js/tests/*_test.bs.js"
+    ],
+    "snapshotResolver": "./tests/snapshotResolver.js"
+  },
+  "sdc-check": {
+    "options": {
+      "daysBeforeUpgradeToNewVersion": 7
+    },
+    "errors": [
+      "lockfile-is-not-safe",
+      "package-is-too-new",
+      "install-scripts",
+      "obfuscated-code",
+      "has-os-scripts",
+      "dangerous-shell-commands",
+      "released-after-long-period-of-inactivity",
+      "too-many-decision-makers",
+      "no-source-code"
+    ]
+  }
+}

@@ -3,3 +3,5 @@
 /lib/
 .bsb.lock
 .merlin
+/2022/node_modules/
+/2022/lib/
