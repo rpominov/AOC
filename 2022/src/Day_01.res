@@ -31,6 +31,3 @@ let part2 = input => {
   ->Js.Array2.reduce((a, n) => a +. n, 0.0)
   ->Belt.Float.toInt
 }
-
-Js.log(part1(Input_01.input))
-Js.log(part2(Input_01.input))

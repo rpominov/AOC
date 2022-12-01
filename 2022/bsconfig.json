@@ -2,7 +2,7 @@
   "name": "rescript-project-template",
   "namespace": true,
   "sources": [
-    { "dir": "src", "subdirs": false },
+    { "dir": "src", "subdirs": true },
     { "dir": "tests", "subdirs": false, "type": "dev", "public": [] }
   ],
   "package-specs": [
