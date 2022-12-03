@@ -25,5 +25,5 @@ test("Part 2", () => {
   expect(Day_01.part2(input))->toBe(45000)
 })
 
-Js.log(Day_01.part1(Input_01.input))
-Js.log(Day_01.part2(Input_01.input))
+// Js.log(Day_01.part1(Input_01.input))
+// Js.log(Day_01.part2(Input_01.input))
