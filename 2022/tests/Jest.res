@@ -81,6 +81,7 @@ let getErrorExn = (res, loc) =>
       Js.Console.error3("Unexpected Ok(", x, ")")
       Js.Exn.raiseError(j`Unexpected Ok(_) at: $loc`)
     }
+
   | Error(e) => e
   }
 
@@ -90,3 +91,16 @@ let arrGetExn = (arr, i, loc) =>
   } else {
     Js.Exn.raiseError(j`Invalid array index $i at: $loc`)
   }
+
+// not related to Jest, but who cares
+let trimEmptyLines = str => {
+  let arr = str->Js.String2.split("\n")
+  let arr2 =
+    arr
+    ->Js.Array2.sliceFrom(arr->Js.Array2.findIndex(x => x->Js.String2.trim !== ""))
+    ->Js.Array2.reverseInPlace
+  arr2
+  ->Js.Array2.sliceFrom(arr2->Js.Array2.findIndex(x => x->Js.String2.trim !== ""))
+  ->Js.Array2.reverseInPlace
+  ->Js.Array2.joinWith("\n")
+}
