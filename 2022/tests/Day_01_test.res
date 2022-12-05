@@ -18,12 +18,12 @@ let input = `
 `
 
 test("Part 1", () => {
-  expect(Day_01.part1(input))->toBe(24000)
+  expect(Day_01.part1(input->trimEmptyLines))->toBe(24000)
 })
 
 test("Part 2", () => {
-  expect(Day_01.part2(input))->toBe(45000)
+  expect(Day_01.part2(input->trimEmptyLines))->toBe(45000)
 })
 
-// Js.log(Day_01.part1(Input_01.input))
-// Js.log(Day_01.part2(Input_01.input))
+// Js.log(Day_01.part1(Input_01.input->trimEmptyLines))
+// Js.log(Day_01.part2(Input_01.input->trimEmptyLines))
