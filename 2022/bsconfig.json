@@ -1,6 +1,6 @@
 {
   "name": "rescript-project-template",
-  "namespace": true,
+  "namespace": false,
   "sources": [
     { "dir": "src", "subdirs": true },
     { "dir": "tests", "subdirs": false, "type": "dev", "public": [] }
