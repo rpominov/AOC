@@ -31,7 +31,5 @@ test("Part 2", () => {
   expect(Day_09.part2(input2->trimEmptyLines))->toBe(36)
 })
 
-Js.log(Day_09.part1(Input_09.input->trimEmptyLines))
-
-// 2150 too low
-Js.log(Day_09.part2(Input_09.input->trimEmptyLines))
+// Js.log(Day_09.part1(Input_09.input->trimEmptyLines))
+// Js.log(Day_09.part2(Input_09.input->trimEmptyLines))
