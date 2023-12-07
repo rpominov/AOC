@@ -6,7 +6,7 @@ const lowerInt = (x) => (Math.floor(x) === x ? x - 1 : Math.floor(x));
 
 const getSolutionsCount = (time, recordDistance) => {
   const ds = Math.sqrt(time ** 2 - recordDistance * 4);
-  return lowerInt((0 - time - ds) / -2) - higherInt((0 - time + ds) / -2) + 1;
+  return lowerInt((time + ds) / 2) - higherInt((time - ds) / 2) + 1;
 };
 
 const times = input
