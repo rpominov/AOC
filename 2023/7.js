@@ -29,50 +29,52 @@ const getStrength = (hand, cardsOrder = "AKQJT98765432") => {
   return [type, ...strength];
 };
 
+const getType = (hand) => getStrength(hand)[0];
+
+const sort = (hands) =>
+  hands.sort(({ strength: a }, { strength: b }) => {
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) {
+        return b[i] - a[i];
+      }
+    }
+    return 0;
+  });
+
 const parsed = input.split("\n").map((line) => {
   const [hand, points] = line.split(" ");
-  return {
-    hand,
-    points: Number(points),
-    strength: getStrength(hand),
-  };
+  return { hand, points: Number(points), strength: getStrength(hand) };
 });
 
-const cmp = (a, b) => {
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) {
-      return b[i] - a[i];
-    }
-  }
-  return 0;
-};
-
-parsed.sort((a, b) => cmp(a.strength, b.strength));
+sort(parsed);
 
 console.log(
   "Result 1:",
   parsed.map(({ points }, i) => points * (i + 1)).reduce((a, b) => a + b, 0)
 );
 
-const getBestVariant = (card) => {
-  if (card.indexOf("J") === -1) {
-    return card;
+const getBestVariant = (hand) => {
+  if (hand.indexOf("J") === -1) {
+    return hand;
   }
 
-  const variants = [
-    ..."AKQT98765432".split("").map((x) => card.replace("J", x)),
-  ].map((x) => [x, getStrength(x)]);
-
-  return getBestVariant(variants.sort((a, b) => cmp(a[1], b[1])).at(-1)[0]);
+  return getBestVariant(
+    hand
+      .split("")
+      .filter((c) => c !== "J")
+      .map((c) => hand.replace("J", c))
+      .map((v) => [v, getType(v)])
+      .sort(([, a], [, b]) => b - a)[0][0]
+  );
 };
 
-const hands2 = parsed
-  .map(({ hand, points }) => {
-    const type = getStrength(getBestVariant(hand))[0];
-    const [, ...rest] = getStrength(hand, "AKQT98765432J");
-    return { points, strength: [type, ...rest] };
-  })
-  .sort((a, b) => cmp(a.strength, b.strength));
+const hands2 = parsed.map(({ hand, points }) => {
+  const type = getType(getBestVariant(hand));
+  const [, ...rest] = getStrength(hand, "AKQT98765432J");
+  return { points, strength: [type, ...rest] };
+});
+
+sort(hands2);
 
 console.log(
   "Result 2:",
