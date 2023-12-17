@@ -1,16 +1,8 @@
-const input = `2413432311323
-3215453535623
-3255245654254
-3446585845452
-4546657867536
-1438598798454
-4457876987766
-3637877979653
-4654967986887
-4564679986453
-1224686865563
-2546548887735
-4322674655533`;
+const input = `19999
+19999
+19999
+19999
+11111`;
 
 const map = input.split("\n").map((line) => line.split("").map(Number));
 
@@ -65,7 +57,12 @@ const getConnectionsForward = ({ x, y, history }) => {
 
 const forwardConnections = new Map();
 
-const toProcess = [{ x: 1, y: 0, history: ">" }];
+// NOTE: Unfinished code! You need to rut it 2 times with both of these options, and choose the smaller result!!!
+//
+const firstItem = { x: 0, y: 1, history: "v" };
+// const firstItem = { x: 1, y: 0, history: ">" };
+
+const toProcess = [firstItem];
 const processed = new Set();
 
 const itemToKey = ({ x, y, history }) => `${x},${y},${history}`;
@@ -199,7 +196,7 @@ console.log(
   [...forwardConnections.values()].reduce((a, b) => a + b.length, 0)
 );
 
-while (!finalCosts.has("1,0,>")) {
+while (!finalCosts.has(itemToKey(firstItem))) {
   processAll();
   console.log(
     "%",
@@ -207,7 +204,7 @@ while (!finalCosts.has("1,0,>")) {
   );
 }
 
-const finalPath = ["1,0,>"];
+const finalPath = [itemToKey(firstItem)];
 
 while (!finalPath.at(-1).startsWith(`${width - 1},${height - 1},`)) {
   const last = finalPath.at(-1);
@@ -255,7 +252,4 @@ console.log(
     .join("\n")
 );
 
-// This doesn't work on the real input!
-// Gives number higher than the correct one by 1.
-// I'm too tired and don't want to debug it.
-console.log("Result 2", finalCosts.get("1,0,>"));
+console.log("Result 2", finalCosts.get(itemToKey(firstItem)));
