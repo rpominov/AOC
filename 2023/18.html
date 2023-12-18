@@ -1,0 +1,153 @@
+<canvas
+  id="canvas"
+  width="1800"
+  height="1800"
+  style="width: 900px; border: solid 1px red"
+></canvas>
+
+<script>
+  const input = `R 6 (#70c710)
+D 5 (#0dc571)
+L 2 (#5713f0)
+D 2 (#d2c081)
+R 2 (#59c680)
+D 2 (#411b91)
+L 5 (#8ceee2)
+U 2 (#caa173)
+L 1 (#1b58a2)
+U 2 (#caa171)
+R 2 (#7807d2)
+U 3 (#a77fa3)
+L 2 (#015232)
+U 2 (#7a21e3)`;
+
+  const canvas = document.getElementById("canvas");
+
+  const ctx = canvas.getContext("2d");
+
+  const width = canvas.width;
+  const height = canvas.height;
+
+  let x = width / 2;
+  let y = height / 2;
+
+  const directions = {
+    R: [1, 0],
+    L: [-1, 0],
+    U: [0, -1],
+    D: [0, 1],
+  };
+
+  const corrections = {
+    R: [0.5, 0],
+    L: [-0.5, 0],
+    U: [0, -0.5],
+    D: [0, 0.5],
+  };
+
+  const lineWidth = 4;
+
+  const drawLine = (direction, steps, color) => {
+    ctx.beginPath();
+    const [cx, cy] = corrections[direction];
+    ctx.moveTo(x + cx * lineWidth, y + cy * lineWidth);
+    const [dx, dy] = directions[direction];
+    x = x + dx * steps * lineWidth;
+    y = y + dy * steps * lineWidth;
+    ctx.lineTo(x + cx * lineWidth, y + cy * lineWidth);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    ctx.closePath();
+  };
+
+  ctx.lineWidth = lineWidth;
+
+  const lines = input.split("\n");
+  console.log(lines);
+
+  for (const line of lines) {
+    const [direction, steps, color] = line.trim().split(" ");
+    drawLine(direction, steps, color.slice(1, 8));
+  }
+
+  const maxX = width / lineWidth - 1;
+  const maxY = height / lineWidth - 1;
+
+  const minX = 1;
+  const minY = 1;
+
+  const startX = width / 2 / lineWidth;
+  const startY = height / 2 / lineWidth;
+
+  let fillCount = 0;
+  const fillPoint = (x, y, color = "red") => {
+    if (x < minX || x > maxX || y < minY || y > maxY) {
+      return;
+    }
+
+    fillCount++;
+
+    ctx.fillStyle = color;
+    ctx.fillRect(
+      x * lineWidth - lineWidth / 2,
+      y * lineWidth - lineWidth / 2,
+      lineWidth,
+      lineWidth
+    );
+  };
+
+  const samplePoint = (x, y) => {
+    if (x < minX || x > maxX || y < minY || y > maxY) {
+      return [0, 0, 0, 0];
+    }
+
+    const [r, g, b, o] = ctx.getImageData(
+      x * lineWidth,
+      y * lineWidth,
+      1,
+      1
+    ).data;
+
+    return [r, g, b, o];
+  };
+
+  const floodFill = (x, y, color = "red") => {
+    const toProcess = [[x, y]];
+
+    while (toProcess.length > 0) {
+      const [x, y] = toProcess.pop();
+
+      if (x < minX || x > maxX || y < minY || y > maxY) {
+        continue;
+      }
+
+      const [r, g, b, o] = samplePoint(x, y);
+
+      if (o !== 0) {
+        continue;
+      }
+
+      fillPoint(x, y, color);
+
+      toProcess.push([x - 1, y]);
+      toProcess.push([x + 1, y]);
+      toProcess.push([x, y - 1]);
+      toProcess.push([x, y + 1]);
+    }
+  };
+
+  floodFill(startX + 1, startY + 1);
+
+  let opaque = 0;
+
+  for (let x = minX; x <= maxX; x++) {
+    for (let y = minY; y <= maxY; y++) {
+      const [r, g, b, o] = samplePoint(x, y);
+      if (o !== 0) {
+        opaque++;
+      }
+    }
+  }
+
+  console.log(opaque);
+</script>
