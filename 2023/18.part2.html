@@ -1,0 +1,247 @@
+<canvas
+  id="canvas"
+  width="1800"
+  height="1800"
+  style="width: 900px; border: solid 1px red"
+></canvas>
+
+<script>
+  const input = `R 6 (#70c710)
+D 5 (#0dc571)
+L 2 (#5713f0)
+D 2 (#d2c081)
+R 2 (#59c680)
+D 2 (#411b91)
+L 5 (#8ceee2)
+U 2 (#caa173)
+L 1 (#1b58a2)
+U 2 (#caa171)
+R 2 (#7807d2)
+U 3 (#a77fa3)
+L 2 (#015232)
+U 2 (#7a21e3)`;
+
+  const randomColor = () => {
+    const r = Math.floor(Math.random() * 200);
+    const g = Math.floor(Math.random() * 200);
+    const b = Math.floor(Math.random() * 200);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  /*
+   * X and Y are coordinates of the top left point of the rectangle.
+   * If WIDTH and HEIGHT are 1, contains one point.
+   * If WIDTH or HEIGHT is 0, contains no points.
+   */
+  class Rect {
+    constructor(x, y, width, height) {
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = height;
+    }
+
+    area() {
+      return this.width * this.height;
+    }
+
+    intersectsWith(rect) {
+      const intersectsHorizontally =
+        this.x < rect.x + rect.width && this.x + this.width > rect.x;
+      const intersectsVertically =
+        this.y < rect.y + rect.height && this.y + this.height > rect.y;
+      return intersectsHorizontally && intersectsVertically;
+    }
+
+    fullyContains(rect) {
+      return (
+        this.x <= rect.x &&
+        this.y <= rect.y &&
+        this.x + this.width >= rect.x + rect.width &&
+        this.y + this.height >= rect.y + rect.height
+      );
+    }
+
+    isNeighbor(rect) {
+      const isNeighborHorizontally =
+        (this.x === rect.x + rect.width || rect.x === this.x + this.width) &&
+        this.y < rect.y + rect.height &&
+        this.y + this.height > rect.y;
+      const isNeighborVertically =
+        (this.y === rect.y + rect.height || rect.y === this.y + this.height) &&
+        this.x < rect.x + rect.width &&
+        this.x + this.width > rect.x;
+      return isNeighborHorizontally || isNeighborVertically;
+    }
+
+    render(ctx) {
+      const zoom = 0.0001;
+      const offset = 800;
+
+      ctx.fillStyle = randomColor();
+
+      ctx.fillRect(
+        this.x * zoom + offset,
+        this.y * zoom + offset,
+        this.width * zoom,
+        this.height * zoom
+      );
+    }
+
+    splitAtY(y) {
+      if (y <= this.y || y >= this.y + this.height) {
+        throw new Error("Can't split at this Y");
+      }
+
+      const top = new Rect(this.x, this.y, this.width, y - this.y);
+      const bottom = new Rect(this.x, y, this.width, this.y + this.height - y);
+      return [top, bottom];
+    }
+
+    splitAtX(x) {
+      if (x <= this.x || x >= this.x + this.width) {
+        throw new Error("Can't split at this X");
+      }
+
+      const left = new Rect(this.x, this.y, x - this.x, this.height);
+      const right = new Rect(x, this.y, this.x + this.width - x, this.height);
+      return [left, right];
+    }
+
+    splitWith(otherRect) {
+      if (this.intersectsWith(otherRect)) {
+        if (this.x < otherRect.x) {
+          return this.splitAtX(otherRect.x);
+        }
+        if (this.y < otherRect.y) {
+          return this.splitAtY(otherRect.y);
+        }
+        if (this.x + this.width > otherRect.x + otherRect.width) {
+          return this.splitAtX(otherRect.x + otherRect.width);
+        }
+        if (this.y + this.height > otherRect.y + otherRect.height) {
+          return this.splitAtY(otherRect.y + otherRect.height);
+        }
+        throw new Error("Can't split with this rect");
+      }
+      return [this];
+    }
+  }
+
+  const edgeRects = [];
+
+  const directions = {
+    R: [1, 0],
+    L: [-1, 0],
+    U: [0, -1],
+    D: [0, 1],
+  };
+
+  let x = 0;
+  let y = 0;
+
+  input.split("\n").forEach((row) => {
+    // Part 1 rules
+    //
+    // let [direction, steps] = row.trim().split(" ");
+    // steps = Number(steps);
+
+    // Part 2 rules
+    //
+    const [, , color] = row.trim().split(" ");
+    const steps = parseInt(color.slice(2, 7), 16);
+    const direction = { 0: "R", 1: "D", 2: "L", 3: "U" }[color[7]];
+
+    const [dx, dy] = directions[direction];
+
+    const fromX = x;
+    const fromY = y;
+    x = x + dx * steps;
+    y = y + dy * steps;
+    const toX = x;
+    const toY = y;
+
+    if (direction === "R") {
+      edgeRects.push(new Rect(fromX + 1, fromY, steps, 1));
+    } else if (direction === "L") {
+      edgeRects.push(new Rect(toX, toY, steps, 1));
+    } else if (direction === "D") {
+      edgeRects.push(new Rect(fromX, fromY + 1, 1, steps));
+    } else if (direction === "U") {
+      edgeRects.push(new Rect(toX, toY, 1, steps));
+    }
+  });
+
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+
+  const minX = Math.min(...edgeRects.map((rect) => rect.x));
+  const maxX = Math.max(...edgeRects.map((rect) => rect.x + rect.width));
+  const minY = Math.min(...edgeRects.map((rect) => rect.y));
+  const maxY = Math.max(...edgeRects.map((rect) => rect.y + rect.height));
+
+  const bbox = new Rect(minX - 1, minY - 1, maxX - minX + 2, maxY - minY + 2);
+
+  const toProcess = [bbox];
+
+  const clean = [];
+  const dirty = [];
+
+  while (toProcess.length > 0) {
+    const rect = toProcess.pop();
+
+    if (edgeRects.some((edgeRect) => edgeRect.fullyContains(rect))) {
+      dirty.push(rect);
+      continue;
+    }
+
+    let foundSplit = false;
+    for (const edgeRect of edgeRects) {
+      const splitRects = rect.splitWith(edgeRect);
+      if (splitRects.length > 1) {
+        foundSplit = true;
+        toProcess.push(...splitRects);
+        break;
+      }
+    }
+
+    if (!foundSplit) {
+      clean.push(rect);
+    }
+  }
+
+  console.log("Rects to check:", clean.length);
+
+  const topLeftIndex = clean.findIndex(
+    (rect) => rect.x === bbox.x && rect.y === bbox.y
+  );
+  const outside = [clean[topLeftIndex]];
+
+  clean.splice(topLeftIndex, 1);
+
+  let foundMore = true;
+
+  while (foundMore) {
+    foundMore = false;
+    for (const rect of clean) {
+      if (outside.some((outsideRect) => outsideRect.isNeighbor(rect))) {
+        foundMore = true;
+        outside.push(rect);
+        clean.splice(clean.indexOf(rect), 1);
+        break;
+      }
+    }
+  }
+
+  const inside = [...clean, ...edgeRects];
+
+  for (const rect of inside) {
+    rect.render(ctx);
+  }
+
+  const insideArea = inside.reduce((acc, rect) => acc + rect.area(), 0);
+
+  console.log("Result:", insideArea);
+
+  // 743712802 too low
+</script>
