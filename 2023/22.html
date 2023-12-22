@@ -1,0 +1,434 @@
+<canvas
+  id="canvas"
+  width="3000"
+  height="1850"
+  style="width: 1500px; border: solid 1px"
+></canvas>
+
+<script>
+  const ctx = document.getElementById("canvas").getContext("2d");
+
+  let rotationX = 1.7;
+  let rotationY = -0.2;
+  let rotationZ = 0;
+
+  const project = (x, y, z) => {
+    const cosX = Math.cos(rotationX);
+    const sinX = Math.sin(rotationX);
+    const cosY = Math.cos(rotationY);
+    const sinY = Math.sin(rotationY);
+
+    let [x2, y2, z2] = [x, y, z];
+
+    // rotate around X axis
+    y2 = y * cosX - z * sinX;
+    z2 = y * sinX + z * cosX;
+
+    // rotate around Y axis
+    x2 = x * cosY - z2 * sinY;
+    z2 = x * sinY + z2 * cosY;
+
+    // rotate around Z axis
+    const cosZ = Math.cos(rotationZ);
+    const sinZ = Math.sin(rotationZ);
+    const x3 = x2 * cosZ - y2 * sinZ;
+    const y3 = x2 * sinZ + y2 * cosZ;
+
+    x = x3;
+    y = y3;
+
+    // x = x + z / 2;
+    // y = y - z / 2;
+
+    const zoom = 2;
+    x = x * zoom;
+    y = y * zoom;
+
+    const offsetX = 800;
+    const offsetY = 1800;
+    x = x + offsetX;
+    y = y + offsetY;
+
+    return [x, y];
+  };
+
+  const fillPolygon = (coords, color = "red") => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(...project(...coords[0]));
+    for (const coord of coords.slice(1)) {
+      ctx.lineTo(...project(...coord));
+    }
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  const CUBE_SIDE = 10;
+
+  // 1x1x1 cube
+  class Cube1 {
+    constructor(x, y, z, color = "rgba(255, 0, 0, 0.5)") {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+      this.color = color;
+    }
+
+    render(color = this.color) {
+      let { x, y, z } = this;
+
+      x = x * CUBE_SIDE;
+      y = y * CUBE_SIDE;
+      z = z * CUBE_SIDE;
+
+      const padding = 0.5;
+
+      // left
+      fillPolygon(
+        [
+          [x, y + padding, z + padding],
+          [x, y + CUBE_SIDE - padding, z + padding],
+          [x, y + CUBE_SIDE - padding, z + CUBE_SIDE - padding],
+          [x, y + padding, z + CUBE_SIDE - padding],
+        ],
+        color
+      );
+
+      // back
+      fillPolygon(
+        [
+          [x + padding, y + padding, z + CUBE_SIDE],
+          [x + padding, y + CUBE_SIDE - padding, z + CUBE_SIDE],
+          [x + CUBE_SIDE - padding, y + CUBE_SIDE - padding, z + CUBE_SIDE],
+          [x + CUBE_SIDE - padding, y + padding, z + CUBE_SIDE],
+        ],
+        color
+      );
+
+      // bottom
+      fillPolygon(
+        [
+          [x + padding, y + CUBE_SIDE, z + padding],
+          [x + padding, y + CUBE_SIDE, z + CUBE_SIDE - padding],
+          [x + CUBE_SIDE - padding, y + CUBE_SIDE, z + CUBE_SIDE - padding],
+          [x + CUBE_SIDE - padding, y + CUBE_SIDE, z + padding],
+        ],
+        color
+      );
+
+      // top
+      fillPolygon(
+        [
+          [x + padding, y, z + padding],
+          [x + padding, y, z + CUBE_SIDE - padding],
+          [x + CUBE_SIDE - padding, y, z + CUBE_SIDE - padding],
+          [x + CUBE_SIDE - padding, y, z + padding],
+        ],
+        color
+      );
+
+      // front
+      fillPolygon(
+        [
+          [x + padding, y + padding, z],
+          [x + padding, y + CUBE_SIDE - padding, z],
+          [x + CUBE_SIDE - padding, y + CUBE_SIDE - padding, z],
+          [x + CUBE_SIDE - padding, y + padding, z],
+        ],
+        color
+      );
+
+      // right
+      fillPolygon(
+        [
+          [x + CUBE_SIDE, y + padding, z + padding],
+          [x + CUBE_SIDE, y + CUBE_SIDE - padding, z + padding],
+          [x + CUBE_SIDE, y + CUBE_SIDE - padding, z + CUBE_SIDE - padding],
+          [x + CUBE_SIDE, y + padding, z + CUBE_SIDE - padding],
+        ],
+        color
+      );
+    }
+  }
+
+  const directions = {
+    x: [1, 0, 0],
+    y: [0, 1, 0],
+    z: [0, 0, 1],
+  };
+
+  let supports = new Set();
+
+  let lastId = 0;
+
+  // a line of 1x1x1 cubes
+  class Block {
+    constructor(x, y, z, direction, length, color) {
+      this.id = (lastId++).toString("16").toUpperCase();
+
+      this.x = x;
+      this.y = y;
+      this.z = z;
+      this.color =
+        color ||
+        `rgba(${Math.random() * 200}, ${Math.random() * 200}, ${
+          Math.random() * 200
+        }, 1)`;
+
+      const sign = length < 0 ? -1 : 1;
+
+      this.cubes = new Array(length * sign).fill(0).map((_, i) => {
+        const [dx, dy, dz] = directions[direction];
+        return new Cube1(
+          x + dx * i * sign,
+          y + dy * i * sign,
+          z + dz * i * sign,
+          this.color
+        );
+      });
+    }
+
+    minZ() {
+      return Math.min(...this.cubes.map((cube) => cube.z));
+    }
+
+    maxZ() {
+      return Math.max(...this.cubes.map((cube) => cube.z));
+    }
+
+    // this cab be much more efficient
+    isOtherBlockImmediatelyBelow(otherBlock) {
+      if (this === otherBlock) {
+        return false;
+      }
+
+      const result = this.cubes.some((cube) =>
+        otherBlock.cubes.some(
+          (otherCube) =>
+            cube.x === otherCube.x &&
+            cube.y === otherCube.y &&
+            cube.z === otherCube.z + 1
+        )
+      );
+
+      if (result) {
+        supports.add(`${otherBlock.id} supports ${this.id}`);
+      }
+
+      return result;
+    }
+
+    moveDown(ammount = 1) {
+      for (const cube of this.cubes) {
+        cube.z -= ammount;
+      }
+      this.z -= ammount;
+    }
+
+    render() {
+      for (const cube of this.cubes) {
+        cube.render();
+      }
+    }
+  }
+
+  const input = `1,0,1~1,2,1
+0,0,2~2,0,2
+0,2,3~2,2,3
+0,0,4~0,2,4
+2,0,5~2,2,5
+0,1,6~2,1,6
+1,1,8~1,1,9`;
+
+  const blocks = [];
+
+  for (const line of input.split("\n")) {
+    const [from, to] = line.trim().split("~");
+
+    const [fx, fy, fz] = from.split(",").map(Number);
+    const [tx, ty, tz] = to.split(",").map(Number);
+
+    if (from === to) {
+      blocks.push(new Block(fx, fy, fz, "x", 1));
+      continue;
+    }
+
+    const dx = tx - fx;
+    const dy = ty - fy;
+    const dz = tz - fz;
+    const direction = dx === 0 ? (dy === 0 ? "z" : "y") : "x";
+
+    const length = [dx, dy, dz].find((n) => n !== 0);
+
+    blocks.push(
+      new Block(fx, fy, fz, direction, length > 0 ? length + 1 : length - 1)
+    );
+  }
+
+  let madeProgress = true;
+  while (madeProgress) {
+    madeProgress = false;
+
+    for (const block of blocks) {
+      if (block.minZ() === 1) {
+        continue;
+      }
+
+      const blockBelow = blocks.find(
+        (b) => b !== block && block.isOtherBlockImmediatelyBelow(b)
+      );
+
+      if (!blockBelow) {
+        block.moveDown();
+        madeProgress = true;
+      }
+    }
+  }
+
+  supports = new Set();
+
+  for (const block of blocks) {
+    for (const otherBlock of blocks) {
+      block.isOtherBlockImmediatelyBelow(otherBlock);
+    }
+  }
+
+  const findSupportedBy = (block) => {
+    const result = [];
+
+    for (const support of supports) {
+      // id supports otherId
+      const [id, , otherId] = support.split(" ");
+      if (id === block.id) {
+        result.push(otherId);
+      }
+    }
+
+    return result;
+  };
+
+  const findSupports_ = (blockId) => {
+    const result = [];
+
+    for (const support of supports) {
+      // id supports otherId
+      const [id, , otherId] = support.split(" ");
+      if (otherId === blockId) {
+        result.push(id);
+      }
+    }
+
+    return result;
+  };
+
+  const memo0 = new Map();
+  const findSupports = (blockId) => {
+    if (memo0.has(blockId)) {
+      return memo0.get(blockId);
+    }
+    const result = findSupports_(blockId);
+    memo0.set(blockId, result);
+    return result;
+  };
+
+  let redundantCount = 0;
+
+  for (const block of blocks) {
+    const supportedBy = findSupportedBy(block);
+
+    if (supportedBy.length === 0) {
+      redundantCount++;
+      continue;
+    }
+
+    redundantCount++;
+
+    for (const dependent of supportedBy) {
+      if (findSupports(dependent).length === 1) {
+        redundantCount--;
+        break;
+      }
+    }
+  }
+
+  console.log("Result 1:", redundantCount);
+
+  const howManyWillFall = (removedId) => {
+    const fallen = new Set([removedId]);
+
+    let madeProgress = true;
+
+    while (madeProgress) {
+      madeProgress = false;
+      for (const block of blocks) {
+        if (fallen.has(block.id)) {
+          continue;
+        }
+
+        if (block.minZ() === 1) {
+          continue;
+        }
+
+        const supports = findSupports(block.id).filter((id) => !fallen.has(id));
+        if (supports.length === 0) {
+          fallen.add(block.id);
+          madeProgress = true;
+          break;
+        }
+      }
+    }
+
+    console.log(removedId, fallen.size);
+
+    return fallen.size;
+  };
+
+  const result2 = blocks
+    .map((block) => howManyWillFall(block.id) - 1)
+    .reduce((a, b) => a + b, 0);
+
+  console.log("Result 2:", result2);
+
+  // const renderWorld = () => {
+  //   ctx.clearRect(0, 0, 3000, 1850);
+
+  //   // TODO: sort depending on rotation
+  //   blocks.sort((a, b) => (a.y === b.y ? b.x - a.x : a.y - b.y));
+
+  //   for (const block of blocks) {
+  //     block.render();
+  //   }
+  // };
+
+  // renderWorld();
+
+  // document.addEventListener("mousedown", (e) => {
+  //   const { clientX, clientY } = e;
+
+  //   let lastX = clientX;
+  //   let lastY = clientY;
+
+  //   const onMouseMove = (e) => {
+  //     const { clientX, clientY } = e;
+
+  //     const dx = clientX - lastX;
+  //     const dy = clientY - lastY;
+
+  //     rotationX += dy / 100;
+  //     rotationY += dx / 100;
+
+  //     lastX = clientX;
+  //     lastY = clientY;
+
+  //     renderWorld();
+  //   };
+
+  //   const onMouseUp = () => {
+  //     document.removeEventListener("mousemove", onMouseMove);
+  //     document.removeEventListener("mouseup", onMouseUp);
+  //   };
+
+  //   document.addEventListener("mousemove", onMouseMove);
+  //   document.addEventListener("mouseup", onMouseUp);
+  // });
+</script>
