@@ -1,0 +1,165 @@
+<canvas
+  id="canvas"
+  width="3000"
+  height="1850"
+  style="width: 1500px; border: solid 1px"
+></canvas>
+
+<script>
+  const input = `...........
+.....###.#.
+.###.##..#.
+..#.#...#..
+....#.#....
+.##..S####.
+.##..#...#.
+.......##..
+.##.#.####.
+.##..##.##.
+...........`;
+
+  const key = (x, y) => `${x},${y}`;
+  const unkey = (key) => key.split(",").map(Number);
+
+  const walls = new Set();
+
+  const lines = input.split("\n").map((line) => line.trim());
+
+  const width = lines[0].length;
+  const height = lines.length;
+
+  let start;
+
+  for (let y = 0; y < height; y++) {
+    const line = lines[y];
+    for (let x = 0; x < width; x++) {
+      if (line[x] === "#") {
+        walls.add(key(x, y));
+      }
+      if (line[x] === "S") {
+        start = key(x, y);
+      }
+    }
+  }
+
+  const ctx = document.getElementById("canvas").getContext("2d");
+  const zoom = 1;
+
+  const renderPoints = (
+    points,
+    color = "red",
+    offsetX = 800,
+    offsetY = 800
+  ) => {
+    const [startX, startY] = unkey(start);
+
+    for (const key of points) {
+      const [x, y] = unkey(key);
+
+      ctx.fillStyle = color;
+
+      if (Math.abs(Math.abs(x - startX) - Math.abs(y - startY)) % 131 === 65) {
+        if (color === "red") ctx.fillStyle = "rgb(255, 100, 100)";
+        if (color === "blue") ctx.fillStyle = "rgba(100, 100, 255)";
+        if (color === "green") ctx.fillStyle = "rgba(100, 255, 100)";
+      }
+
+      ctx.fillRect((x + offsetX) * zoom, (y + offsetY) * zoom, zoom, zoom);
+    }
+  };
+
+  const isWall = (point) => {
+    const [x, y] = unkey(point);
+    if (x >= 0 && x < width && y >= 0 && y < height) {
+      return walls.has(point);
+    }
+
+    const projectedX = x - Math.floor(x / width) * width;
+    const projectedY = y - Math.floor(y / height) * height;
+
+    return walls.has(key(projectedX, projectedY));
+  };
+
+  const isOdd = (point) => {
+    let [x, y] = unkey(point);
+    if (x < 0) {
+      x = -x;
+    }
+    if (y < 0) {
+      y = -y;
+    }
+    return x % 2 === y % 2;
+  };
+
+  const isInRange = (point) => {
+    const [x, y] = unkey(point);
+    return x >= 0 && x < width && y >= 0 && y < height;
+  };
+
+  const neighbours = (point) => {
+    const [x, y] = unkey(point);
+    return [key(x + 1, y), key(x - 1, y), key(x, y + 1), key(x, y - 1)];
+  };
+
+  const fill = (start, iterations, color = "blue", offset = 0) => {
+    let odd = isOdd(start) ? 0 : 1;
+    let even = isOdd(start) ? 1 : 0;
+
+    let found = new Set([start]);
+
+    let foundOnPreviousIteration = new Set([start]);
+
+    const useEven = iterations % 2 === 0;
+
+    if (useEven) {
+      renderPoints([start], color);
+    }
+
+    while (true) {
+      if (iterations === 0) {
+        return useEven ? even : odd;
+      }
+      iterations--;
+
+      const foundOnThisIteration = new Set();
+      const toRender = new Set();
+
+      for (const key of foundOnPreviousIteration) {
+        for (const neighbour of neighbours(key)) {
+          if (!found.has(neighbour) && !isWall(neighbour)) {
+            foundOnThisIteration.add(neighbour);
+            found.add(neighbour);
+
+            if (isOdd(neighbour)) {
+              even++;
+              if (useEven) toRender.add(neighbour);
+            } else {
+              odd++;
+              if (!useEven) toRender.add(neighbour);
+            }
+          }
+        }
+      }
+
+      renderPoints(toRender, color);
+
+      foundOnPreviousIteration = foundOnThisIteration;
+    }
+  };
+
+  console.log("Result 1:", fill(start, 64));
+
+  // Numbers below are for my real input
+  //
+  // 26501365 = 65 + 131 * 202300
+  // 3849 + 15301 * i + 15181 * i * i
+  //
+  // RESULT 2 ^^^^^
+  //
+  // console.log(fill(start, 65 + 131 * 10, "blue")); // 3849 + 5 * 91326 + 10 * 121448
+  // console.log(fill(start, 65 + 131 * 8, "blue")); //  3849 + 4 * 91326 +  6 * 121448
+  console.log(fill(start, 65 + 131 * 6, "red")); //      3849 + 3 * 91326 +  3 * 121448
+  console.log(fill(start, 65 + 131 * 4, "blue")); //     3849 + 2 * 91326 +  1 * 121448
+  console.log(fill(start, 65 + 131 * 2, "red")); //      3849 + 1 * 91326 +  0 * 121448
+  console.log(fill(start, 65, "green")); //              3849 + 0 * 91326 +  0 * 121448
+</script>
