@@ -1,0 +1,181 @@
+<script>
+  const input = `#.#####################
+#.......#########...###
+#######.#########.#.###
+###.....#.>.>.###.#.###
+###v#####.#v#.###.#.###
+###.>...#.#.#.....#...#
+###v###.#.#.#########.#
+###...#.#.#.......#...#
+#####.#.#.#######.#.###
+#.....#.#.#.......#...#
+#.#####.#.#.#########v#
+#.#...#...#...###...>.#
+#.#.#v#######v###.###v#
+#...#.>.#...>.>.#.###.#
+#####v#.#.###v#.#.###.#
+#.....#...#...#.#.#...#
+#.#########.###.#.#.###
+#...###...#...#...#.###
+###.###.#.###v#####v###
+#...#...#.#.>.>.#.>.###
+#.###.###.#.###.#.#v###
+#.....###...###...#...#
+#####################.#`;
+
+  const map = input
+    .trim()
+    .split("\n")
+    .map((line) => line.trim().split(""));
+
+  const getTile = (x, y) => {
+    if (x < 0 || y < 0 || y >= map.length || x >= map[y].length) {
+      return "#";
+    }
+    return map[y][x];
+  };
+
+  const getNextOptions = (prevX, prevY, x, y) => {
+    const current = getTile(x, y);
+
+    let above = prevX === x && prevY === y - 1 ? "#" : getTile(x, y - 1);
+    let below = prevX === x && prevY === y + 1 ? "#" : getTile(x, y + 1);
+    let left = prevX === x - 1 && prevY === y ? "#" : getTile(x - 1, y);
+    let right = prevX === x + 1 && prevY === y ? "#" : getTile(x + 1, y);
+
+    if (current === ">") {
+      above = "#";
+      below = "#";
+      left = "#";
+    }
+
+    if (current === "<") {
+      above = "#";
+      below = "#";
+      right = "#";
+    }
+
+    if (current === "^") {
+      left = "#";
+      right = "#";
+      below = "#";
+    }
+
+    if (current === "v") {
+      left = "#";
+      right = "#";
+      above = "#";
+    }
+
+    const nextOptions = [
+      { isBlocked: above === "#", x, y: y - 1 },
+      { isBlocked: below === "#", x, y: y + 1 },
+      { isBlocked: left === "#", x: x - 1, y },
+      { isBlocked: right === "#", x: x + 1, y },
+    ];
+
+    return nextOptions.filter((x) => !x.isBlocked);
+  };
+
+  const endX = map[0].length - 2;
+  const endY = map.length - 1;
+
+  const toProcess = [{ prevX: 0, prevY: 0, x: 1, y: 0, distance: 0 }];
+
+  const results = [];
+
+  while (toProcess.length) {
+    const { prevX, prevY, x, y, distance } = toProcess.shift();
+    if (x === endX && y === endY) {
+      results.push(distance);
+      continue;
+    }
+    getNextOptions(prevX, prevY, x, y).forEach((next) => {
+      toProcess.push({ ...next, prevX: x, prevY: y, distance: distance + 1 });
+    });
+  }
+
+  console.log("Result 1:", Math.max(...results));
+
+  const getNextOptions2 = (prevX, prevY, x, y) =>
+    [
+      { x, y: y - 1 },
+      { x, y: y + 1 },
+      { x: x - 1, y },
+      { x: x + 1, y },
+    ].filter(
+      (o) => !((o.x === prevX && o.y === prevY) || getTile(o.x, o.y) === "#")
+    );
+
+  const toProcess2 = [
+    { prevX: 0, prevY: 0, x: 1, y: 0, distance: 0, forbidden: new Set() },
+  ];
+
+  let result2 = 0;
+
+  const walkUntilSplitCache = new Map();
+  const walkUntilSplit = (x, y, prevX, prevY) => {
+    const key = `${x},${y},${prevX},${prevY}`;
+    if (walkUntilSplitCache.has(key)) {
+      return walkUntilSplitCache.get(key);
+    }
+
+    let distance = 0;
+    while (true) {
+      const options = getNextOptions2(prevX, prevY, x, y);
+      if (options.length !== 1) {
+        break;
+      }
+      const next = options[0];
+      prevX = x;
+      prevY = y;
+      x = next.x;
+      y = next.y;
+      distance++;
+    }
+
+    const result = { prevX, prevY, x, y, distance };
+    walkUntilSplitCache.set(key, result);
+    return result;
+  };
+
+  while (toProcess2.length) {
+    let { prevX, prevY, x, y, distance, forbidden } = toProcess2.pop();
+
+    const skip = walkUntilSplit(x, y, prevX, prevY);
+
+    x = skip.x;
+    y = skip.y;
+    prevX = skip.prevX;
+    prevY = skip.prevY;
+    distance += skip.distance;
+
+    if (forbidden.has(`${x},${y}`)) {
+      continue;
+    }
+
+    if (x === endX && y === endY) {
+      result2 = Math.max(result2, distance);
+      continue;
+    }
+
+    let options = getNextOptions2(prevX, prevY, x, y);
+
+    if (options.length > 1) {
+      forbidden = new Set(forbidden);
+      forbidden.add(`${x},${y}`);
+    }
+
+    toProcess2.push(
+      ...options.map((next) => ({
+        ...next,
+        prevX: x,
+        prevY: y,
+        distance: distance + 1,
+        forbidden,
+      }))
+    );
+  }
+
+  console.log("Result 2:", result2);
+</script>
