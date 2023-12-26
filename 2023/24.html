@@ -1,0 +1,765 @@
+<canvas
+  id="canvas"
+  width="3000"
+  height="1850"
+  style="width: 1500px; border: solid 1px"
+></canvas>
+
+<script>
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+
+  // Paramerers for real input
+  //
+  // const zoom = 0.000000000004;
+  // const xShift = -500;
+  // const yShift = -700;
+  // const min = 200000000000000;
+  // const max = 400000000000000;
+
+  const zoom = 30;
+  const xShift = 300;
+  const yShift = 300;
+  const min = 7;
+  const max = 27;
+
+  const project = (x, y) => {
+    return {
+      x: x * zoom + xShift,
+      y: y * zoom + yShift,
+    };
+  };
+
+  const unproject = (x, y) => {
+    return {
+      x: (x - xShift) / zoom,
+      y: (y - yShift) / zoom,
+    };
+  };
+
+  const renderLine = (x1, y1, x2, y2, color = "red") => {
+    const p1 = project(x1, y1);
+    const p2 = project(x2, y2);
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.strokeStyle = color;
+    ctx.stroke();
+    ctx.closePath();
+  };
+
+  const renderPoint = (x, y, color = "red") => {
+    const p = project(x, y);
+    ctx.fillStyle = color;
+    ctx.fillRect(p.x - 1, p.y - 1, 3, 3);
+  };
+
+  const input = `19, 13, 30 @ -2,  1, -2
+18, 19, 22 @ -1, -1, -2
+20, 25, 34 @ -2, -2, -4
+12, 31, 28 @ -1, -2, -1
+20, 19, 15 @  1, -5, -3`;
+
+  const bigIntToNumber = (n) => {
+    if (n > Number.MAX_SAFE_INTEGER) {
+      throw new Error("Number too large");
+    }
+    if (n < Number.MIN_SAFE_INTEGER) {
+      throw new Error("Number too small");
+    }
+    return Number(n);
+  };
+
+  class Hailstone {
+    constructor(x, y, z, vx, vy, vz) {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+      this.vx = vx;
+      this.vy = vy;
+      this.vz = vz;
+    }
+
+    toString() {
+      return `${this.x}, ${this.y}, ${this.z} @ ${this.vx}, ${this.vy}, ${this.vz}`;
+    }
+
+    renderPath(minX, maxX, minY, maxY, t, color) {
+      renderLine(
+        this.x,
+        this.y,
+        this.x + this.vx * t,
+        this.y + this.vy * t,
+        color
+      );
+    }
+
+    toRockEquations() {
+      // 0 = (vx*Y y*VX VY*X vy*x) - (vy*X x*VY VX*Y vx*y)
+      // 0 = (vx*Z z*VX VZ*X vz*x) - (vz*X x*VZ VX*Z vx*z)
+      // 0 = (vy*Z z*VY VZ*Y vz*y) - (vz*Y y*VZ VY*Z vy*z)
+
+      const x = new Constant(this.x);
+      const y = new Constant(this.y);
+      const z = new Constant(this.z);
+      const vx = new Constant(this.vx);
+      const vy = new Constant(this.vy);
+      const vz = new Constant(this.vz);
+
+      const VX = new Variable("VX");
+      const VY = new Variable("VY");
+      const VZ = new Variable("VZ");
+
+      const X = new Variable("X");
+      const Y = new Variable("Y");
+      const Z = new Variable("Z");
+
+      const s1 = [
+        new Product([vx, Y]),
+        new Product([y, VX]),
+        new Product([VY, X]),
+        new Product([vy, x]).simplify(),
+        new Product([
+          new Constant(-1),
+          new Sum([
+            new Product([vy, X]),
+            new Product([x, VY]),
+            new Product([VX, Y]),
+            new Product([vx, y]),
+          ]),
+        ]).simplify(),
+      ];
+
+      const s2 = [
+        new Product([vx, Z]),
+        new Product([z, VX]),
+        new Product([VZ, X]),
+        new Product([vz, x]).simplify(),
+        new Product([
+          new Constant(-1),
+          new Sum([
+            new Product([vz, X]),
+            new Product([x, VZ]),
+            new Product([VX, Z]),
+            new Product([vx, z]),
+          ]),
+        ]).simplify(),
+      ];
+
+      const s3 = [
+        new Product([vy, Z]),
+        new Product([z, VY]),
+        new Product([VZ, Y]),
+        new Product([vz, y]).simplify(),
+        new Product([
+          new Constant(-1),
+          new Sum([
+            new Product([vz, Y]),
+            new Product([y, VZ]),
+            new Product([VY, Z]),
+            new Product([vy, z]),
+          ]),
+        ]).simplify(),
+      ];
+
+      return [s1, s2, s3].map((s) => new Sum(s).simplify());
+    }
+
+    findCollision(other) {
+      let x1 = BigInt(this.x);
+      let y1 = BigInt(this.y);
+      let vx1 = BigInt(this.vx);
+      let vy1 = BigInt(this.vy);
+      let x2 = BigInt(other.x);
+      let y2 = BigInt(other.y);
+      let vx2 = BigInt(other.vx);
+      let vy2 = BigInt(other.vy);
+
+      let den = vx1 * vy2 - vx2 * vy1;
+
+      // parallel
+      if (den === 0n) {
+        return null;
+      }
+
+      let dx = x2 - x1;
+      let dy = y2 - y1;
+
+      let t1 = (dx * vy2 - dy * vx2) / den;
+      let t2 = (dx * vy1 - dy * vx1) / den;
+
+      // in past
+      if (t1 <= 0 || t2 <= 0) {
+        return null;
+      }
+
+      // We cannot use t1 and t2 to calculate collision point because they are rounded to an integer
+
+      // let move each to a point right before collision
+      x1 += vx1 * (t1 - 1n);
+      y1 += vy1 * (t1 - 1n);
+      x2 += vx2 * (t2 - 1n);
+      y2 += vy2 * (t2 - 1n);
+
+      // let find a better origin
+      const originX = x1 < x2 ? x1 : x2;
+      const originY = y1 < y2 ? y1 : y2;
+
+      // let change origin
+      x1 -= originX;
+      y1 -= originY;
+      x2 -= originX;
+      y2 -= originY;
+
+      // now let recalculate everything but using Number instead of BigInt
+      x1 = bigIntToNumber(x1);
+      y1 = bigIntToNumber(y1);
+      vx1 = bigIntToNumber(vx1);
+      vy1 = bigIntToNumber(vy1);
+      x2 = bigIntToNumber(x2);
+      y2 = bigIntToNumber(y2);
+      vx2 = bigIntToNumber(vx2);
+      vy2 = bigIntToNumber(vy2);
+
+      den = vx1 * vy2 - vx2 * vy1;
+      dx = x2 - x1;
+      dy = y2 - y1;
+      t1 = (dx * vy2 - dy * vx2) / den;
+      t2 = (dx * vy1 - dy * vx1) / den;
+
+      // sanity check
+      if (t1 < 0 || t2 < 0) {
+        throw new Error("Something went wrong");
+      }
+      if (t1 > 2 || t2 > 2) {
+        throw new Error("Something went wrong");
+      }
+
+      const x = x1 + vx1 * t1;
+      const y = y1 + vy1 * t1;
+
+      // sanity check
+      const altX = x2 + vx2 * t2;
+      const altY = y2 + vy2 * t2;
+      if (Math.abs(x - altX) > 0.000001 || Math.abs(y - altY) > 0.000001) {
+        console.log(x - altX, y - altY);
+        throw new Error("Too big rounding error");
+      }
+
+      return {
+        originX,
+        originY,
+        preciseX: x,
+        preciseY: y,
+        x: Number(originX) + x,
+        y: Number(originY) + y,
+      };
+    }
+  }
+
+  const parseInput = (input) => {
+    const lines = input.trim().split("\n");
+    const hailstones = [];
+    for (const line of lines) {
+      const [x, y, z, vx, vy, vz] = line
+        .trim()
+        .split(/[^\d-]+/)
+        .map(Number);
+      hailstones.push(new Hailstone(x, y, z, vx, vy, vz));
+    }
+
+    return hailstones;
+  };
+
+  const hailstones = parseInput(input);
+
+  const myRock = new Hailstone(24, 13, 10, -3, 1, 2);
+
+  // My solution
+  //
+  // const myRock = new Hailstone(
+  //   369109345096355,
+  //   377478862726817,
+  //   138505253617233,
+  //   -153,
+  //   -150,
+  //   296
+  // );
+
+  const collisions = [];
+
+  for (const a of hailstones) {
+    for (const b of hailstones) {
+      if (a === b) {
+        continue;
+      }
+
+      const collision = a.findCollision(b);
+
+      if (
+        collision &&
+        collision.preciseX >= BigInt(min) - collision.originX &&
+        collision.preciseX <= BigInt(max) - collision.originX &&
+        collision.preciseY >= BigInt(min) - collision.originY &&
+        collision.preciseY <= BigInt(max) - collision.originY
+      ) {
+        // O_o
+        const similar = collisions.find(
+          (c) =>
+            Math.abs(collision.x - c.x) < 3 && Math.abs(collision.y - c.y) < 3
+        );
+        if (similar) {
+          continue;
+        }
+
+        collisions.push(collision);
+      }
+    }
+  }
+
+  console.log("Result 1:", collisions.length);
+
+  let t = 0;
+  setInterval(() => {
+    // t += 5000000000; // use this for real input
+    t += 0.1;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    renderLine(min, min, max, min, "rgba(0, 0, 0, 0.5)");
+    renderLine(min, min, min, max, "rgba(0, 0, 0, 0.5)");
+    renderLine(max, min, max, max, "rgba(0, 0, 0, 0.5)");
+    renderLine(min, max, max, max, "rgba(0, 0, 0, 0.5)");
+
+    for (const hailstone of hailstones) {
+      hailstone.renderPath(min, min, max, max, t);
+    }
+
+    myRock.renderPath(min, min, max, max, t, "blue");
+
+    for (const collision of collisions) {
+      renderPoint(collision.x, collision.y, "black");
+    }
+  }, 100);
+
+  // -------------------------------------------------------------------------------------
+  // -------------------- Ad-hoc framework for solving equations -------------------------
+  // -------------------------------------------------------------------------------------
+
+  class Sum {
+    constructor(items) {
+      this.items = items;
+      this.combineSums();
+      this.combineProducts();
+      this.combineConstants();
+    }
+
+    combineConstants() {
+      const constants = this.items.filter((item) => item instanceof Constant);
+
+      if (constants.length < 1) {
+        return false;
+      }
+
+      const combined = constants.reduce((acc, item) => acc + item.value, 0n);
+
+      const remaining = this.items.filter(
+        (item) => !(item instanceof Constant)
+      );
+
+      this.items =
+        combined === 0n ? remaining : [new Constant(combined), ...remaining];
+
+      return true;
+    }
+
+    combineSums() {
+      const sums = this.items.filter((item) => item instanceof Sum);
+
+      if (sums.length < 1) {
+        return false;
+      }
+
+      const combined = sums.reduce((acc, item) => [...acc, ...item.items], []);
+
+      const remaining = this.items.filter((item) => !(item instanceof Sum));
+
+      this.items = [...combined, ...remaining];
+
+      return true;
+    }
+
+    combineProducts() {
+      const products = new Map();
+      const constants = new Map();
+
+      const remainingItems = [];
+
+      const add = (key, value, base) => {
+        if (!constants.has(key)) {
+          constants.set(key, []);
+        }
+        if (!products.has(key)) {
+          products.set(key, base.simplify());
+        }
+        constants.get(key).push(value);
+      };
+
+      for (const item of this.items) {
+        if (item instanceof Product) {
+          add(item.getKey(), item.getConstant(), item.withoutConstant());
+        } else if (item instanceof Variable) {
+          add(item.name, 1n, new Product([item]));
+        } else {
+          remainingItems.push(item);
+        }
+      }
+
+      const combined = [];
+
+      if (![...constants.values()].some((x) => x.length > 1)) {
+        return;
+      }
+
+      for (const [key, product] of products.entries()) {
+        const constant = constants.get(key).reduce((acc, x) => acc + x, 0n);
+        combined.push(
+          new Product([new Constant(constant), product]).simplify()
+        );
+      }
+
+      this.items = [...combined, ...remainingItems];
+    }
+
+    simplify() {
+      if (this.items.length === 0) {
+        return new Constant(0);
+      }
+
+      if (this.items.length === 1) {
+        return this.items[0];
+      }
+
+      const newItems = [];
+
+      let changed = false;
+
+      for (const item of this.items) {
+        const simplified = item.simplify();
+        if (simplified !== item) {
+          changed = true;
+        }
+        newItems.push(simplified);
+      }
+
+      if (changed) {
+        return new Sum(newItems).simplify();
+      }
+
+      return this;
+    }
+
+    // Assuming the sum represents left side of something like this: 10*X + 20*VX + 30*VY = 0
+    // We want to devide it by 10 to get: X + 2*VX + 3*VY = 0
+    normalise() {
+      const ks = this.getKoefficients();
+
+      if (ks.length < 2) {
+        return this;
+      }
+
+      let smallest = ks[0];
+      for (const k of ks) {
+        if ((k > 0 ? k : -k) < (smallest > 0 ? smallest : -smallest)) {
+          smallest = k;
+        }
+      }
+
+      if (smallest === 1n || smallest === -1n) {
+        return this;
+      }
+
+      for (const k of ks) {
+        // cannot divide without remainder
+        if (k % smallest !== 0n) {
+          return this;
+        }
+      }
+
+      const k = smallest;
+
+      return new Sum(
+        this.items.map((item) => {
+          if (item instanceof Product) {
+            const newConstant = item.getConstant() / k;
+            return new Product([
+              new Constant(newConstant),
+              item.withoutConstant(),
+            ]).simplify();
+          }
+          if (item instanceof Constant) {
+            return new Constant(item.value / k);
+          }
+          throw new Error("Not implemented");
+        })
+      );
+    }
+
+    subtract(other) {
+      return new Sum([
+        this,
+        new Product([new Constant(-1), other]).simplify(),
+      ]).simplify();
+    }
+
+    add(other) {
+      return new Sum([this, other]).simplify();
+    }
+
+    getKoefficients() {
+      return this.items.map((item) =>
+        item instanceof Product
+          ? item.getConstant()
+          : item instanceof Constant
+          ? item.value
+          : 1n
+      );
+    }
+
+    getType(signless = false) {
+      const ks = this.getKoefficients();
+
+      return this.items
+        .map((item, i) => {
+          const name =
+            item instanceof Product
+              ? item.getKey()
+              : item instanceof Variable
+              ? item.name
+              : "constant";
+          return `${ks[i] > 0n || signless ? "+" : "-"}${name}`;
+        })
+        .sort()
+        .join("");
+    }
+
+    allPositive() {
+      return this.getKoefficients().every((x) => x > 0);
+    }
+
+    toString() {
+      return "(" + this.items.map((item) => item.toString()).join(" + ") + ")";
+    }
+  }
+
+  class Product {
+    constructor(items) {
+      this.items = items;
+      this.combineProducts();
+      this.combineConstants();
+    }
+
+    withoutConstant() {
+      if (this.items.some((item) => item instanceof Constant)) {
+        return new Product(
+          this.items.filter((item) => !(item instanceof Constant))
+        );
+      }
+      return this;
+    }
+
+    getConstant() {
+      const constant = this.items.find((item) => item instanceof Constant);
+      if (!constant) {
+        return 1n;
+      }
+      return constant.value;
+    }
+
+    getKey() {
+      const nonConstant = this.items
+        .filter((item) => !(item instanceof Constant))
+        .map((x) => x.toString());
+      nonConstant.sort();
+      return nonConstant.join("*");
+    }
+
+    combineConstants() {
+      const constants = this.items.filter((item) => item instanceof Constant);
+
+      if (constants.length < 1) {
+        return false;
+      }
+
+      const combined = constants.reduce((acc, item) => acc * item.value, 1n);
+
+      const remaining = this.items.filter(
+        (item) => !(item instanceof Constant)
+      );
+
+      this.items =
+        combined === 0n
+          ? [new Constant(0)]
+          : combined === 1n
+          ? remaining
+          : [new Constant(combined), ...remaining];
+
+      return true;
+    }
+
+    combineProducts() {
+      const products = this.items.filter((item) => item instanceof Product);
+
+      if (products.length < 1) {
+        return false;
+      }
+
+      const combined = products.reduce(
+        (acc, item) => [...acc, ...item.items],
+        []
+      );
+
+      const remaining = this.items.filter((item) => !(item instanceof Product));
+
+      this.items = [...combined, ...remaining];
+
+      return true;
+    }
+
+    simplify() {
+      if (this.items.length === 0) {
+        return new Constant(1);
+      }
+
+      if (this.items.length === 1) {
+        return this.items[0];
+      }
+
+      if (this.items.some((item) => item instanceof Sum)) {
+        const sumIndex = this.items.findIndex((item) => item instanceof Sum);
+        const sum = this.items[sumIndex];
+        const remaining = this.items.filter(
+          (item, index) => index !== sumIndex
+        );
+
+        return new Sum(
+          sum.items.map((item) => new Product([...remaining, item]).simplify())
+        ).simplify();
+      }
+
+      return this;
+    }
+
+    toString() {
+      return this.items.map((item) => item.toString()).join("*");
+    }
+  }
+
+  class Variable {
+    constructor(name) {
+      this.name = name;
+    }
+
+    simplify() {
+      return this;
+    }
+
+    toString() {
+      return this.name;
+    }
+  }
+
+  class Constant {
+    constructor(value) {
+      this.value = BigInt(value);
+    }
+
+    simplify() {
+      return this;
+    }
+
+    toString() {
+      return this.value.toString();
+    }
+  }
+
+  const multiplyByConst = (a, b) => {
+    return new Product([new Constant(a), b]).simplify();
+  };
+
+  // -------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------
+  // -------------------------------------------------------------------------------------
+
+  const as = [];
+  const bs = [];
+  const cs = [];
+
+  for (const hailstone of hailstones) {
+    const [a, b, c] = hailstone.toRockEquations();
+    as.push(a);
+    bs.push(b);
+    cs.push(c);
+  }
+
+  const byType = {};
+
+  for (let i = 0; i < bs.length - 1; i++) {
+    for (let ii = i + 1; ii < bs.length; ii++) {
+      const result = bs[i].subtract(bs[ii]);
+      if (result.items.length < 5) {
+        const normal = result.normalise();
+        if (normal.items.length === 4 && normal === result) {
+          continue;
+        }
+        const type = normal.getType(true);
+        if (!byType[type]) {
+          byType[type] = [];
+        }
+        byType[type].push(normal);
+      }
+    }
+  }
+
+  for (let i = 0; i < as.length - 1; i++) {
+    for (let ii = i + 1; ii < as.length; ii++) {
+      const result = as[i].subtract(as[ii]);
+      if (result.items.length < 5) {
+        const normal = result.normalise();
+        if (normal.items.length === 4 && normal === result) {
+          continue;
+        }
+        const type = normal.getType(true);
+        if (!byType[type]) {
+          byType[type] = [];
+        }
+        byType[type].push(normal);
+      }
+    }
+  }
+
+  for (let i = 0; i < cs.length - 1; i++) {
+    for (let ii = i + 1; ii < cs.length; ii++) {
+      const result = cs[i].subtract(cs[ii]);
+      if (result.items.length < 5) {
+        const normal = result.normalise();
+        if (normal.items.length === 4 && normal === result) {
+          continue;
+        }
+        const type = normal.getType(true);
+        if (!byType[type]) {
+          byType[type] = [];
+        }
+        byType[type].push(normal);
+      }
+    }
+  }
+
+  // This outputs some equations that you solve by hand
+  for (const key of Object.keys(byType)) {
+    const items = byType[key];
+
+    for (const item of items) {
+      console.log(item.toString());
+    }
+  }
+</script>
