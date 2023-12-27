@@ -1,0 +1,110 @@
+<script>
+  const input = `jqt: rhn xhk nvd
+rsh: frs pzl lsr
+xhk: hfx
+cmg: qnr nvd lhk bvb
+rhn: xhk bvb hfx
+bvb: xhk hfx
+pzl: lsr hfx nvd
+qnr: nvd
+ntq: jqt hfx bvb xhk
+nvd: lhk
+lsr: lhk
+rzs: qnr cmg lsr rsh
+frs: qnr lhk lsr`;
+
+  const connections = new Set();
+  const nodes = new Set();
+
+  const key = (a, b) => [a, b].sort().join("-");
+
+  for (const line of input.trim().split("\n")) {
+    const [name, other] = line.trim().split(": ");
+    nodes.add(name);
+    for (const x of other.split(" ")) {
+      nodes.add(x);
+      connections.add(key(name, x));
+    }
+  }
+
+  const connectionsPerNode = new Map();
+
+  for (const node of nodes) {
+    connectionsPerNode.set(
+      node,
+      [...connections]
+        .filter((x) => x.includes(node))
+        .map((x) => x.replace(node, "").replace("-", ""))
+    );
+  }
+
+  const floodFill = (
+    current,
+    visited,
+    counts,
+    removedConnections = new Set()
+  ) => {
+    const nextCounts = [...counts, current.size];
+    const next = new Set();
+    const nextVisited = new Set([...visited, ...current]);
+
+    for (const node of current) {
+      for (const other of connectionsPerNode.get(node)) {
+        if (removedConnections.has(key(node, other))) {
+          continue;
+        }
+        if (!nextVisited.has(other)) {
+          next.add(other);
+        }
+      }
+    }
+
+    if (next.size === 0) {
+      return [nextVisited, nextCounts];
+    }
+
+    return floodFill(next, nextVisited, nextCounts, removedConnections);
+  };
+
+  const candidates = new Set();
+
+  for (const node of nodes) {
+    const [, addedPerStep] = floodFill(new Set([node]), new Set(), []);
+    const diffs = addedPerStep.map((x, i, arr) => x - (arr[i - 1] || 0));
+    if (diffs.every((x, i, arr) => x < 0 || i === 0 || arr[i - 1] > 0)) {
+      for (const connection of connectionsPerNode.get(node)) {
+        candidates.add(key(node, connection));
+      }
+    }
+  }
+
+  const candidatesArr = [...candidates];
+
+  const firstNode = [...nodes][0];
+
+  for (let i = 0; i < candidatesArr.length; i++) {
+    for (let j = i + 1; j < candidatesArr.length; j++) {
+      for (let k = j + 1; k < candidatesArr.length; k++) {
+        const removedConnections = new Set([
+          candidatesArr[i],
+          candidatesArr[j],
+          candidatesArr[k],
+        ]);
+
+        const [visited] = floodFill(
+          new Set([firstNode]),
+          new Set(),
+          [],
+          removedConnections
+        );
+
+        if (visited.size !== nodes.size) {
+          console.log("Result 1:", visited.size * (nodes.size - visited.size));
+
+          // just to stop the script
+          throw new Error();
+        }
+      }
+    }
+  }
+</script>
